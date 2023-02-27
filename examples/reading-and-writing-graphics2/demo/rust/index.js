@@ -29,12 +29,12 @@ const runWasm = async () => {
     return Math.floor(Math.random() * 127) + 127;
   };
 
-  const drawCheckerBoard = () => {
-    const checkerBoardSize = 100;
+  const drawCrystal = ( init ) => {
+    const crtstalSize = 100;
 
     // Generate a new checkboard in wasm
     rustWasm.update_crystal(
-      true
+      init
     );
 
     // Create a Uint8Array to give us access to Wasm Memory
@@ -46,7 +46,7 @@ const runWasm = async () => {
     const outputPointer = rustWasm.get_output_buffer_pointer();
     const imageDataArray = wasmByteMemoryArray.slice(
       outputPointer,
-      outputPointer + checkerBoardSize * checkerBoardSize * 4
+      outputPointer + crtstalSize * crtstalSize * 4
     );
 
     // Set the values to the canvas image data
@@ -61,9 +61,9 @@ const runWasm = async () => {
 
   // Lastly, call our function to draw a checkerboard
   // And run this once every second
-  drawCheckerBoard();
+  drawCrystal(true);
   setInterval(() => {
-    drawCheckerBoard();
-  }, 1000);
+    drawCrystal(false);
+  }, 10);
 };
 runWasm();
