@@ -64,10 +64,11 @@ fn get_neighbors(x: u32, y: u32) -> [usize; 4] {
 }
 // Function to generate our crystal, pixel by pixel
 #[wasm_bindgen]
-pub fn update_crystal(init: bool) {
+pub fn update_crystal(init: bool) -> u32 {
     // Since Linear memory is a 1 dimensional array, but we want a grid
     // we will be doing 2d to 1d mapping
     // https://softwareengineering.stackexchange.com/questions/212808/treating-a-1d-data-structure-as-2d-grid
+    let mut n_deltas: u32 = 0;
     if init {
         for y in 0..GRID_H {
             for x in 0..GRID_W {
@@ -80,7 +81,7 @@ pub fn update_crystal(init: bool) {
             }
         }
     }
-    // update the new state fro the old
+    // update the new state from the old
     for y in 0..GRID_H {
         for x in 0..GRID_W {
             let idx: usize = get_idx(x, y);
@@ -88,8 +89,11 @@ pub fn update_crystal(init: bool) {
             unsafe {
                 let cur_cell = OLD_STATE[idx];
                 for n_idx in neighbors {
+                    // if any neighbor is one state higher it eats this cell
                     if OLD_STATE[n_idx] == (cur_cell + 1) % NUM_STATES {
                         NEW_STATE[idx] = OLD_STATE[n_idx];
+                        n_deltas = n_deltas + 1;
+                        break;
                     }
                 }
             }
@@ -113,4 +117,5 @@ pub fn update_crystal(init: bool) {
             }
         }
     }
+    n_deltas
 }

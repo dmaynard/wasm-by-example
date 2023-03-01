@@ -4,9 +4,6 @@ const runWasm = async () => {
   // Instantiate our wasm module
   const rustWasm = await wasmInit("./pkg/crystalize_bg.wasm");
 
-  // Create a Uint8Array to give us access to Wasm Memory
-  const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
-
   // Get our canvas element from our index.html
   const canvasElement = document.querySelector("canvas");
 
@@ -19,24 +16,56 @@ const runWasm = async () => {
 
   // Clear the canvas
   canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  // We want to stop the reaction when either no pixels change,
+  // or the pattern stablizes.
+  let restart = false;
+  let last_ndelta = 0;
+  let streak = 0;
+  let paused = false;
+  let delayms = 128;
+   document.addEventListener('keyup', (event) => {
+    var name = event.key;
+    var code = event.code;
+    if (event.code == "Space" ) paused = !paused;
+    if (event.key == "r" ) restart = true;
+    if (paused && event.key == ".") drawCrystal(false);
+    if (!paused && event.key == "f") {
+      delayms = delayms >= 32 ? delayms / 2 : delayms;
+      clearInterval(interval);
+      interval = setInterval(() => {
+        console.log(" delayms: ", delayms)
+        if (!paused) drawCrystal(restart);
+      }, delayms);
+    };
 
-  // Write some functions to get a color value
-  // for either the darker squares and lighter squares
-  const getDarkValue = () => {
-    return Math.floor(Math.random() * 100);
-  };
-  const getLightValue = () => {
-    return Math.floor(Math.random() * 127) + 127;
-  };
+    if (!paused && event.key == "s") {
+      delayms = delayms <= 2048  ? delayms * 2 : delayms;
+      clearInterval(interval);
+      interval = setInterval(() => {
+        console.log(" delayms: ", delayms)
+        if (!paused) drawCrystal(restart);
+      }, delayms);
+    }
+    console.log(' key: %s code %s', name,code, paused, delayms );
+  }, false);
 
   const drawCrystal = ( init ) => {
     const crtstalSize = 100;
 
     // Generate a new checkboard in wasm
-    rustWasm.update_crystal(
+    let n_deltas = rustWasm.update_crystal(
       init
-    );
+    )
+   
+    if (n_deltas == last_ndelta) {
+      streak += 1;
+    } else {
+      streak = 0;
+      last_ndelta = n_deltas;
+    }
 
+    restart = (n_deltas == 0) || (streak > 200);
+   
     // Create a Uint8Array to give us access to Wasm Memory
     const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
 
@@ -57,13 +86,15 @@ const runWasm = async () => {
 
     // Place the new generated checkerboard onto the canvas
     canvasContext.putImageData(canvasImageData, 0, 0);
+
   };
 
-  // Lastly, call our function to draw a checkerboard
-  // And run this once every second
+  // Lastly, call our function to draw the crystal
+  // And run this ten times every second
   drawCrystal(true);
-  setInterval(() => {
-    drawCrystal(false);
-  }, 10);
+  let interval = setInterval(() => {
+    console.log(" delayms: ", delayms)
+    if (!paused) drawCrystal(restart);
+  }, delayms);
 };
 runWasm();
