@@ -41,7 +41,6 @@ const runWasm = async () => {
         delayms = delayms >= 32 ? delayms / 2 : delayms;
         clearInterval(interval);
         interval = setInterval(() => {
-          // console.log(" delayms: ", delayms)
           if (!paused) drawCrystal(restart);
         }, delayms);
       }
@@ -50,11 +49,10 @@ const runWasm = async () => {
         delayms = delayms <= 2048 ? delayms * 2 : delayms;
         clearInterval(interval);
         interval = setInterval(() => {
-          console.log(" delayms: ", delayms);
           if (!paused) drawCrystal(restart);
         }, delayms);
       }
-      console.log(" key: %s code %s", name, code, paused, delayms);
+      // console.log(" key: %s code %s", name, code, paused, delayms);
     },
     false
   );

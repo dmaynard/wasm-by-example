@@ -61,6 +61,13 @@ pub fn get_output_buffer_pointer() -> *const u32 {
 
     return pointer;
 }
+fn get_byte_buffer() -> *const u8 {
+    let pointer: *const u8;
+    unsafe {
+        pointer = (OUTPUT_BUFFER.as_ptr()) as *mut u8;
+    }
+    pointer
+}
 fn get_idx(x: u32, y: u32) -> usize {
     match (y * GRID_W + x).try_into() {
         Ok(idx) => idx,
