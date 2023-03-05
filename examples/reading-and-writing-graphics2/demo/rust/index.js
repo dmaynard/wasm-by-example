@@ -23,40 +23,49 @@ const runWasm = async () => {
   let streak = 0;
   let paused = false;
   let delayms = 128;
-   document.addEventListener('keyup', (event) => {
-    var name = event.key;
-    var code = event.code;
-    if (event.code == "Space" ) paused = !paused;
-    if (event.key == "r" ) restart = true;
-    if (paused && event.key == ".") drawCrystal(false);
-    if (!paused && event.key == "f") {
-      delayms = delayms >= 32 ? delayms / 2 : delayms;
-      clearInterval(interval);
-      interval = setInterval(() => {
-        console.log(" delayms: ", delayms)
-        if (!paused) drawCrystal(restart);
-      }, delayms);
-    };
+  let logPerfArraySize = 8;
+  let framePerfs = new Array(2 ** logPerfArraySize);
+  let frame = 0;
+  let color = true;
 
-    if (!paused && event.key == "s") {
-      delayms = delayms <= 2048  ? delayms * 2 : delayms;
-      clearInterval(interval);
-      interval = setInterval(() => {
-        console.log(" delayms: ", delayms)
-        if (!paused) drawCrystal(restart);
-      }, delayms);
-    }
-    console.log(' key: %s code %s', name,code, paused, delayms );
-  }, false);
+  document.addEventListener(
+    "keyup",
+    event => {
+      var name = event.key;
+      var code = event.code;
+      if (event.code == "Space") paused = !paused;
+      if (event.key == "r") restart = true;
+      if (event.key == "c") color = !color;
+      if (paused && event.key == ".") drawCrystal(false);
+      if (!paused && event.key == "f") {
+        delayms = delayms >= 32 ? delayms / 2 : delayms;
+        clearInterval(interval);
+        interval = setInterval(() => {
+          // console.log(" delayms: ", delayms)
+          if (!paused) drawCrystal(restart);
+        }, delayms);
+      }
 
-  const drawCrystal = ( init ) => {
+      if (!paused && event.key == "s") {
+        delayms = delayms <= 2048 ? delayms * 2 : delayms;
+        clearInterval(interval);
+        interval = setInterval(() => {
+          console.log(" delayms: ", delayms);
+          if (!paused) drawCrystal(restart);
+        }, delayms);
+      }
+      console.log(" key: %s code %s", name, code, paused, delayms);
+    },
+    false
+  );
+
+  const drawCrystal = init => {
     const crtstalSize = 100;
+    let start = performance.now();
 
     // Generate a new checkboard in wasm
-    let n_deltas = rustWasm.update_crystal(
-      init
-    )
-   
+    let n_deltas = rustWasm.update_crystal(init, color);
+
     if (n_deltas == last_ndelta) {
       streak += 1;
     } else {
@@ -64,8 +73,8 @@ const runWasm = async () => {
       last_ndelta = n_deltas;
     }
 
-    restart = (n_deltas == 0) || (streak > 200);
-   
+    restart = n_deltas == 0 || streak > 200;
+
     // Create a Uint8Array to give us access to Wasm Memory
     const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
 
@@ -86,14 +95,23 @@ const runWasm = async () => {
 
     // Place the new generated checkerboard onto the canvas
     canvasContext.putImageData(canvasImageData, 0, 0);
+    let end = performance.now();
+    let findex = frame & (2 ** logPerfArraySize - 1);
+    framePerfs[findex] = end - start;
+    if (findex == 0) {
+      console.log(
+        " elapsed  ave ms: ",
+        framePerfs.reduce((a, b) => a + b, 0) / framePerfs.length
+      );
+    }
 
+    frame += 1;
   };
 
   // Lastly, call our function to draw the crystal
   // And run this ten times every second
   drawCrystal(true);
   let interval = setInterval(() => {
-    console.log(" delayms: ", delayms)
     if (!paused) drawCrystal(restart);
   }, delayms);
 };
