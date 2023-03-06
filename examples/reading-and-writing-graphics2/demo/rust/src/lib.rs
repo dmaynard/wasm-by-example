@@ -4,26 +4,27 @@ use wasm_bindgen::prelude::*;
 
 // I had trouble getting the Rust Rand crate to work in WASM
 // so instead I will use the ES6 random number generator
-// the sy_sys crate provide rust access to many Es6 system calls
+// the sy_sys crate provide rust access to many ES6 system calls.
+// js_sys::Math::random() is the only one used here.
 extern crate js_sys;
 
 // Define the size of our "GRID"
-const GRID_W: u32 = 100;
-const GRID_H: u32 = 100;
+const GRID_W: u32 = 200;
+const GRID_H: u32 = 200;
 const GRID_SIZE: u32 = GRID_W * GRID_H;
 
 /*
  * 1. What is going on here?
- * Create a static mutable buffer.
+ * WE create a static mutable buffer.
  * We will use for putting the output of our graphics,
  * to pass the output to js.
  * NOTE: global `static mut` means we will have "unsafe" code
  * but for passing memory between js and wasm should be fine
  * since this code is single threaded.
  *
- *
  * 2. In this example we treat the OUTPUT_BUFFER as an array of
- * 32 bit pixels [u32: GRID_SIZE] (0xAABBGGRR)
+ * 32 bit pixels [u32: GRID_SIZE] (0xAABBGGRR) and store each
+ * entire pixel with a single u32 store.
  */
 const OUTPUT_BUFFER_SIZE: u32 = GRID_SIZE;
 static mut OUTPUT_BUFFER: [u32; OUTPUT_BUFFER_SIZE as usize] = [0; OUTPUT_BUFFER_SIZE as usize];
@@ -34,22 +35,18 @@ static mut NEW_STATE: [u8; GRID_SIZE as usize] = [0; GRID_SIZE as usize];
 const NUM_STATES: u8 = 16;
 
 const PALETTE: [u32; NUM_STATES as usize] = [
-    // AABBGGRR
+    // 0xAABBGGRR ALPHA BLUE GREEN RED
     0xffffffff, 0xffeeeeee, 0xffdddddd, 0xffcccccc, 0xffbbbbbb, 0xffaaaaaa, 0xff999999, 0xff888888,
     0xff777777, 0xff666666, 0xff555555, 0xff444444, 0xff333333, 0xff222222, 0xff111111, 0xff000000,
 ];
 const MATERIAL_PALETTE: [u32; NUM_STATES as usize] = [
-    // AABBGGRR
+    // 0xAABBGGRR ALPHA BLUE GREEN RED
     0xff3643f4, 0xff631ee9, 0xffb0279c, 0xffb73a67, 0xffb5513f, 0xfff39621, 0xfff4a903, 0xffd4bc00,
     0xff889600, 0xff50af4c, 0xff4ac38b, 0xff39dccd, 0xff3bebff, 0xff07c1ff, 0xff0098ff, 0xff3457ff,
 ];
+// Packing the pixels this way allows writing a pixel with one u32
+// rather that wrting four separate RGBA bytes.
 
-//  why does this color mapping work ?
-// doing it this way allows writing a pixel with one u32
-// rather that wrting separate RGBA bytes
-fn packed_pixel(r: u8, g: u8, b: u8) -> u32 {
-    (0xff << 12) as u32 | (r << 8) as u32 | (g << 4) as u32 | b as u32
-}
 // Function to return a pointer to our buffer
 // in wasm memory
 #[wasm_bindgen]
@@ -58,15 +55,7 @@ pub fn get_output_buffer_pointer() -> *const u32 {
     unsafe {
         pointer = OUTPUT_BUFFER.as_ptr();
     }
-
     return pointer;
-}
-fn get_byte_buffer() -> *const u8 {
-    let pointer: *const u8;
-    unsafe {
-        pointer = (OUTPUT_BUFFER.as_ptr()) as *mut u8;
-    }
-    pointer
 }
 fn get_idx(x: u32, y: u32) -> usize {
     match (y * GRID_W + x).try_into() {
@@ -93,7 +82,7 @@ pub fn update_crystal(init: bool, color: bool) -> u32 {
     // we will be doing 2d to 1d mapping
     // https://softwareengineering.stackexchange.com/questions/212808/treating-a-1d-data-structure-as-2d-grid
     let mut n_deltas: u32 = 0;
-    let mut the_palette = if color { &MATERIAL_PALETTE } else { &PALETTE };
+    let the_palette = if color { &MATERIAL_PALETTE } else { &PALETTE };
     if init {
         for y in 0..GRID_H {
             for x in 0..GRID_W {
@@ -142,5 +131,8 @@ pub fn update_crystal(init: bool, color: bool) -> u32 {
             }
         }
     }
+    // return the number of pixels updated
+    // the Javascript code uses this to determine when to
+    // start a new crystal
     n_deltas
 }
