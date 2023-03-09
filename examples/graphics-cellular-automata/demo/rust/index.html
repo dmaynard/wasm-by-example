@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Graphics - Rust</title>
+    <link rel="preload" href="./index.js" as="script" />
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body>
+    <h4>
+      Space(pause/unpause) f(faster) s(slower) .(single step) r(restart)
+    </h4>
+    <canvas
+      width="200"
+      height="200"
+      style="image-rendering: pixelated; image-rendering: crisp-edges; width: 100%;"
+    ></canvas>
+    <h4>Milliseconds per generation average</h4>
+    <label id="WASMMS">
+      0.00
+    </label>
+  </body>
+</html>
