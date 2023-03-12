@@ -58,13 +58,17 @@ const runWasm = async () => {
   );
 
   const drawCrystal = init => {
-    const crtstalSize = 200;
     // Create a Uint8Array to give us access to Wasm Memory
     const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
     const outputPointer = rustWasm.get_output_buffer_pointer();
     let start = performance.now();
     // Create or iterate the crystal automata in wasm
-    let n_deltas = rustWasm.update_crystal(init, color);
+    let n_deltas = rustWasm.update_crystal(
+      init,
+      color,
+      canvasElement.width,
+      canvasElement.height
+    );
     let end = performance.now();
 
     if (n_deltas == last_ndelta) {
@@ -82,7 +86,7 @@ const runWasm = async () => {
     // const outputPointer = rustWasm.get_output_buffer_pointer();
     const imageDataArray = wasmByteMemoryArray.slice(
       outputPointer,
-      outputPointer + crtstalSize * crtstalSize * 4
+      outputPointer + canvasElement.width * canvasElement.height * 4
     );
 
     // Set the values to the canvas image data
@@ -91,7 +95,7 @@ const runWasm = async () => {
     // Clear the canvas
     canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-    // Place the new generated checkerboard onto the canvas
+    // Place the new generated automata state onto the canvas
     canvasContext.putImageData(canvasImageData, 0, 0);
 
     let findex = frame & (2 ** logPerfArraySize - 1);
@@ -101,7 +105,6 @@ const runWasm = async () => {
         framePerfs.reduce((a, b) => a + b, 0) / framePerfs.length
       ).toFixed(2);
     }
-
     frame += 1;
   };
 

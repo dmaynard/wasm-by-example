@@ -9,9 +9,9 @@ use wasm_bindgen::prelude::*;
 extern crate js_sys;
 
 // Define the size of our "GRID"
-const GRID_W: u32 = 200;
-const GRID_H: u32 = 200;
-const GRID_SIZE: u32 = GRID_W * GRID_H;
+const MAX_GRID_W: u32 = 2000;
+const MAX_GRID_H: u32 = 2000;
+const MAX_GRID_SIZE: u32 = MAX_GRID_W * MAX_GRID_H;
 
 /*
  * 1. What is going on here?
@@ -26,11 +26,11 @@ const GRID_SIZE: u32 = GRID_W * GRID_H;
  * 32 bit pixels [u32: GRID_SIZE] (0xAABBGGRR) and store each
  * entire pixel with a single u32 store.
  */
-const OUTPUT_BUFFER_SIZE: usize = (GRID_SIZE * 4) as usize;
-static mut OUTPUT_BUFFER: [u8; OUTPUT_BUFFER_SIZE as usize] = [0; OUTPUT_BUFFER_SIZE as usize];
+const OUTPUT_BUFFER_SIZE: usize = (MAX_GRID_SIZE * 4) as usize;
+static mut OUTPUT_BUFFER: [u8; OUTPUT_BUFFER_SIZE] = [0; OUTPUT_BUFFER_SIZE];
 
-static mut OLD_STATE: [u8; GRID_SIZE as usize] = [0; GRID_SIZE as usize];
-static mut NEW_STATE: [u8; GRID_SIZE as usize] = [0; GRID_SIZE as usize];
+static mut OLD_STATE: [u8; MAX_GRID_SIZE as usize] = [0; MAX_GRID_SIZE as usize];
+static mut NEW_STATE: [u8; MAX_GRID_SIZE as usize] = [0; MAX_GRID_SIZE as usize];
 
 const NUM_STATES: u8 = 16;
 
@@ -81,29 +81,29 @@ pub fn get_output_buffer_pointer() -> *const u8 {
     unsafe {
         pointer = OUTPUT_BUFFER.as_ptr();
     }
-    return pointer;
+    pointer
 }
-fn get_idx(x: u32, y: u32) -> usize {
-    match (y * GRID_W + x).try_into() {
+fn get_idx(x: u32, y: u32, w: u32) -> usize {
+    match (y * w + x).try_into() {
         Ok(idx) => idx,
-        Err(why) => panic!("{:?}", why),
+        Err(why) => panic!("{why:?}"),
     }
 }
-fn get_neighbors(x: u32, y: u32) -> [usize; 4] {
+fn get_neighbors(x: u32, y: u32, w: u32, h: u32) -> [usize; 4] {
     [
         // left
-        get_idx(if x == 0 { GRID_W - 1 } else { (x - 1) % GRID_W }, y),
+        get_idx(if x == 0 { w - 1 } else { (x - 1) % w }, y, w),
         // right
-        get_idx((x + 1) % GRID_W, y),
+        get_idx((x + 1) % w, y, w),
         // above
-        get_idx(x, if y == 0 { GRID_H - 1 } else { (y - 1) % GRID_H }),
+        get_idx(x, if y == 0 { h - 1 } else { (y - 1) % h }, w),
         // below
-        get_idx(x, (y + 1) % GRID_H),
+        get_idx(x, (y + 1) % h, w),
     ]
 }
 // Function to generate the next generation of our crystal, pixel by pixel
 #[wasm_bindgen]
-pub fn update_crystal(init: bool, color: bool) -> u32 {
+pub fn update_crystal(init: bool, color: bool, width: u32, height: u32) -> u32 {
     // Since Linear memory is a 1 dimensional array, but we want a grid
     // we will be doing 2d to 1d mapping
     // https://softwareengineering.stackexchange.com/questions/212808/treating-a-1d-data-structure-as-2d-grid
@@ -111,10 +111,10 @@ pub fn update_crystal(init: bool, color: bool) -> u32 {
 
     let the_palette = if color { &MATERIAL_PALETTE } else { &PALETTE };
     if init {
-        for y in 0..GRID_H {
-            for x in 0..GRID_W {
+        for y in 0..height {
+            for x in 0..width {
                 let state: u8 = (js_sys::Math::random() * NUM_STATES as f64) as u8;
-                let idx: usize = ((y * GRID_W) + x) as usize;
+                let idx: usize = ((y * width) + x) as usize;
                 unsafe {
                     NEW_STATE[idx] = state;
                     OLD_STATE[idx] = state;
@@ -123,17 +123,17 @@ pub fn update_crystal(init: bool, color: bool) -> u32 {
         }
     }
     // update the new state from the old
-    for y in 0..GRID_H {
-        for x in 0..GRID_W {
-            let idx: usize = ((y * GRID_W) + x) as usize;
-            let neighbors: [usize; 4] = get_neighbors(x, y);
+    for y in 0..height {
+        for x in 0..width {
+            let idx: usize = ((y * width) + x) as usize;
+            let neighbors: [usize; 4] = get_neighbors(x, y, width, height);
             unsafe {
                 let cur_cell = OLD_STATE[idx];
                 for n_idx in neighbors {
                     // if any neighbor is one state higher it eats this cell
                     if OLD_STATE[n_idx] == (cur_cell + 1) % NUM_STATES {
                         NEW_STATE[idx] = OLD_STATE[n_idx];
-                        n_deltas = n_deltas + 1;
+                        n_deltas += 1;
                         break;
                     }
                 }
@@ -141,9 +141,9 @@ pub fn update_crystal(init: bool, color: bool) -> u32 {
         }
     }
     // map from state to color
-    for y in 0..GRID_H {
-        for x in 0..GRID_W {
-            let idx: usize = get_idx(x, y);
+    for y in 0..height {
+        for x in 0..width {
+            let idx: usize = get_idx(x, y, width);
             let byte_idx = idx * 4;
             unsafe {
                 OUTPUT_BUFFER[byte_idx] = the_palette[(NEW_STATE[idx]) as usize].0;
@@ -154,9 +154,9 @@ pub fn update_crystal(init: bool, color: bool) -> u32 {
         }
     }
     // new now becomes old
-    for y in 0..GRID_H {
-        for x in 0..GRID_W {
-            let idx: usize = get_idx(x, y);
+    for y in 0..height {
+        for x in 0..width {
+            let idx: usize = get_idx(x, y, width);
             unsafe {
                 OLD_STATE[idx] = NEW_STATE[idx];
             }
