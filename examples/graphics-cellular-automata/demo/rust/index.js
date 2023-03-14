@@ -61,6 +61,7 @@ const runWasm = async () => {
     // Create a Uint8Array to give us access to Wasm Memory
     const wasmByteMemoryArray = new Uint8Array(rustWasm.memory.buffer);
     const outputPointer = rustWasm.get_output_buffer_pointer();
+    // console.log(" Wasm ", outputPointer);
     let start = performance.now();
     // Create or iterate the crystal automata in wasm
     let n_deltas = rustWasm.update_crystal(
@@ -69,6 +70,7 @@ const runWasm = async () => {
       canvasElement.width,
       canvasElement.height
     );
+    // console.log(" Wasm ", outputPointer);
     let end = performance.now();
 
     if (n_deltas == last_ndelta) {
@@ -89,7 +91,7 @@ const runWasm = async () => {
       outputPointer + canvasElement.width * canvasElement.height * 4
     );
 
-    // Set the values to the canvas image data
+    // Set the values to the canvas image data,...
     canvasImageData.data.set(imageDataArray);
 
     // Clear the canvas

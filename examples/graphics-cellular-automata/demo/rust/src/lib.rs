@@ -1,13 +1,21 @@
-// The wasm-pack uses wasm-bindgen to build and generate JavaScript binding file.
-// Import the wasm-bindgen crate.
 use wasm_bindgen::prelude::*;
+// extern crate wee_alloc;
+// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
+// allocator.
 
-// I had trouble getting the Rust Rand crate to work in WASM
-// so instead I will use the ES6 random number generator
-// the sy_sys crate provide rust access to many ES6 system calls.
-// js_sys::Math::random() is the only one used here.
-extern crate js_sys;
-
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+// Export a function that will be called in JavaScript
+// but call the "imported" console.log.
+#[wasm_bindgen]
+pub fn console_log_from_wasm() {
+    log("This console.log is from wasm!");
+}
 // Define the size of our "GRID"
 const MAX_GRID_W: u32 = 2000;
 const MAX_GRID_H: u32 = 2000;
@@ -31,6 +39,12 @@ static mut OUTPUT_BUFFER: [u8; OUTPUT_BUFFER_SIZE] = [0; OUTPUT_BUFFER_SIZE];
 
 static mut OLD_STATE: [u8; MAX_GRID_SIZE as usize] = [0; MAX_GRID_SIZE as usize];
 static mut NEW_STATE: [u8; MAX_GRID_SIZE as usize] = [0; MAX_GRID_SIZE as usize];
+
+// I had trouble getting the Rust Rand crate to work in WASM
+// so instead I will use the ES6 random number generator
+// the sy_sys crate provide rust access to many ES6 system calls.
+// js_sys::Math::random() is the only one used here.
+extern crate js_sys;
 
 const NUM_STATES: u8 = 16;
 
@@ -108,7 +122,7 @@ pub fn update_crystal(init: bool, color: bool, width: u32, height: u32) -> u32 {
     // we will be doing 2d to 1d mapping
     // https://softwareengineering.stackexchange.com/questions/212808/treating-a-1d-data-structure-as-2d-grid
     let mut n_deltas: u32 = 4;
-
+    // info!("Init Called: {}x{}", width, height);
     let the_palette = if color { &MATERIAL_PALETTE } else { &PALETTE };
     if init {
         for y in 0..height {
@@ -121,6 +135,10 @@ pub fn update_crystal(init: bool, color: bool, width: u32, height: u32) -> u32 {
                 }
             }
         }
+        log("This console.log is from wasm!");
+        // console.log somehow smashes the arraybutffer we are returning to jacascript!!
+        // uncommenting the following line will cause the program to crash
+        // console_log!("Init Called: ");
     }
     // update the new state from the old
     for y in 0..height {
@@ -167,3 +185,6 @@ pub fn update_crystal(init: bool, color: bool, width: u32, height: u32) -> u32 {
     // start a new crystal
     n_deltas
 }
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
