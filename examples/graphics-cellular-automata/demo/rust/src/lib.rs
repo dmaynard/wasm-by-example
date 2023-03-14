@@ -9,14 +9,27 @@ extern "C" {
     // `log(..)`
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+    // The `console.log` is quite polymorphic, so we can bind it with multiple
+    // signatures. Note that we need to use `js_name` to ensure we always call
+    // `log` in JS.
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_u32(a: u32);
+
+    // Multiple arguments too!
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_many(a: &str, b: &str);
 }
-// Export a function that will be called in JavaScript
-// but call the "imported" console.log.
-#[wasm_bindgen]
-pub fn console_log_from_wasm() {
-    log("This console.log is from wasm!");
+// Next let's define a macro that's like `println!`, only it works for
+// `console.log`. Note that `println!` doesn't actually work on the wasm target
+// because the standard library currently just eats all output. To get
+// `println!`-like behavior in your app you'll likely want a macro like this.
+
+macro_rules! console_log {
+    // Note that this is using the `log` function imported above during
+    // `bare_bones`
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
-// Define the size of our "GRID"
+
 const MAX_GRID_W: u32 = 2000;
 const MAX_GRID_H: u32 = 2000;
 const MAX_GRID_SIZE: u32 = MAX_GRID_W * MAX_GRID_H;
@@ -135,7 +148,11 @@ pub fn update_crystal(init: bool, color: bool, width: u32, height: u32) -> u32 {
                 }
             }
         }
-        log("This console.log is from wasm!");
+        console_log!("{width}x{height}");
+        let msg2 = format!(" {width} by  {height}");
+        let msg = " A longer string from rust A longer string from rust ";
+        log(&msg);
+        log(&msg2);
         // console.log somehow smashes the arraybutffer we are returning to jacascript!!
         // uncommenting the following line will cause the program to crash
         // console_log!("Init Called: ");
@@ -185,6 +202,3 @@ pub fn update_crystal(init: bool, color: bool, width: u32, height: u32) -> u32 {
     // start a new crystal
     n_deltas
 }
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
